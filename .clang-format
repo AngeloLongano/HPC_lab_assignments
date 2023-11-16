@@ -1,0 +1,24 @@
+AlignTrailingComments: false
+AllowShortBlocksOnASingleLine: Never
+BasedOnStyle: LLVM
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterClass: true
+  AfterControlStatement: Always
+  AfterEnum: true
+  AfterExternBlock: true
+  AfterFunction: true
+  AfterNamespace: true
+  BeforeCatch: true
+  BeforeElse: true
+BreakConstructorInitializers: AfterColon
+ColumnLimit: 0
+Cpp11BracedListStyle: true
+FixNamespaceComments: false
+IndentCaseLabels: true
+IndentExternBlock: Indent
+IndentWidth: 4
+NamespaceIndentation: All
+PointerAlignment: Left
+Standard: c++20
+UseTab: Never
