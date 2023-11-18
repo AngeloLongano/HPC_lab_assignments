@@ -11,6 +11,7 @@
 ## Maximal variance accepted between the 3 median runs for performance results.
 ## Here 5%
 VARIANCE_ACCEPTED=5;
+ECHO_CMD='echo -e'
 
 if [ $# -ne 1 ]; then
     echo "Usage: ./time_benchmarh.sh <binary_name>";
