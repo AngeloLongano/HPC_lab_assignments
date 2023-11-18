@@ -34,6 +34,9 @@ veryclean : clean
 	-rm -vf $(DEPS)
 
 run: $(EXE)
+	./$(EXE)
+
+benchmark: $(EXE)
 	$(UTIL_DIR)/time_benchmark.sh ./$(EXE)
 
 $(DEPS): $(SRC) $(HEADERS)
