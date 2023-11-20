@@ -11,6 +11,19 @@
 /* Default data type is double, default size is 1024. */
 #include "lu.h"
 
+#pragma omp declare target
+#define SM 64
+
+#define NTHRDS7 (1 << 0x7) /* 2^{7}  */
+#define NTHRDS8 (1 << 0x8) /* 2^{8}  */
+#define NTHRDS9 (1 << 0x9) /* 2^{9}  */
+
+#define LTEAMSD (1 << 0xD) /* 2^{13} */
+#define LTEAMSE (1 << 0xE) /* 2^{14} */
+#define LTEAMSF (1 << 0xF) /* 2^{15} */
+#define LTEAMSG (1 << 020) /* 2^{16} */
+#pragma omp end declare target
+
 /* Array initialization. */
 static void init_array(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
 {
@@ -44,16 +57,15 @@ static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
 {
     int i, j, k;
     int c1, c2;
-#pragma omp for
     for (k = 0; k < _PB_N; k++)
     {
         c1 = A[k][k];
 
-#pragma omp parallel for schedule(static) private(i, j)
+#pragma omp target teams distribute parallel for dist_schedule(static) private(i, j)
         for (j = k + 1; j < _PB_N; j++)
             A[k][j] /= c1;
 
-#pragma omp parallel for schedule(static) private(i, j)
+#pragma omp target teams distribute parallel for dist_schedule(static) private(i, j)
         for (i = k + 1; i < _PB_N; i++)
         {
 
@@ -77,8 +89,11 @@ int main(int argc, char** argv)
     /* Start timer. */
     polybench_start_instruments;
 
-    /* Run kernel. */
+/* Run kernel. */
+#pragma omp target enter data map(to : A[ : _PB_N][ : _PB_N])
+#pragma omp target
     kernel_lu(n, POLYBENCH_ARRAY(A));
+#pragma omp target exit data map(from : A[ : _PB_N][ : _PB_N])
 
     /* Stop and print timer. */
     polybench_stop_instruments;

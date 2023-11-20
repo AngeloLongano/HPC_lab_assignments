@@ -14,7 +14,7 @@ COMPILER_TYPE=$3
 # 1 == Polybench, 0 == Perf
 if [ "$COMPILER_TYPE" -eq 1 ]; then
     echo "Using Polybench"
-    make EXT_CFLAGS="-DPOLYBENCH_TIME -pg -DN=$N -DNTHREADS=$OMP_NUM_THREADS" clean all run
+    make EXT_CFLAGS="-DPOLYBENCH_TIME -pg -DN=$N -DNTHREADS=$OMP_NUM_THREADS" clean all run 
 else
     module load perf/1.0
     echo "Using perf"

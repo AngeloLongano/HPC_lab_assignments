@@ -1,5 +1,8 @@
 {
     "clangd.fallbackFlags": [
         "-I${workspaceFolder}/common"
-    ]
+    ],
+    "files.associations": {
+        "functional": "c"
+    }
 }

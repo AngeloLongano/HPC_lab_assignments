@@ -78,7 +78,9 @@ int main(int argc, char** argv)
     polybench_start_instruments;
 
     /* Run kernel. */
+    // #pragma omp target data map(tofrom:A[:_PB_N][:_PB_N])
     kernel_lu(n, POLYBENCH_ARRAY(A));
+    // #pragma omp target data exit mapfrom:A[:_PB_N][:_PB_N])
 
     /* Stop and print timer. */
     polybench_stop_instruments;
