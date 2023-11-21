@@ -1,4 +1,5 @@
 #!/bin/bash
+# module load perf/1.0
 
 # possible dataset_size: MINI_DATASET, SMALL_DATASET, STANDARD_DATASET, LARGE_DATASET, EXTRALARGE_DATASET
 # possible STATISTICS: polybench, perf
@@ -13,18 +14,17 @@ STATISTICS="${4:-"polybench"}"
 echo "-------------------------------------"
 echo "Running $NAME_FILE with $DATA_SIZE dataset and $N_THREADS threads ($STATISTICS)"
 echo "-------------------------------------"
-make EXT_CFLAGS="-pg -D$DATA_SIZE -DNTHREADS=$N_THREADS" EXT_ARGS="" BENCHMARK=$NAME_FILE clean all run
+make EXT_CFLAGS="-pg -DPOLYBENCH_TIME -D$DATA_SIZE -DNTHREADS=$N_THREADS" EXT_ARGS="" BENCHMARK=$NAME_FILE clean all run
 
 case $STATISTICS in
     none)
-        echo "No statistics"
         ;;
     perf)
         echo "Using perf"
         perf stat ./lu_acc
         ;;
     polybench)
-        echo "Using Polybench"
+        echo "Using polybench benchmark"
         make benchmark
         ;;
     gprof)
