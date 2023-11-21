@@ -44,12 +44,11 @@ static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
 {
     int i, j, k;
     int c1, c2;
-#pragma omp for
     for (k = 0; k < _PB_N; k++)
     {
         c1 = A[k][k];
 
-#pragma omp parallel for schedule(static) private(i, j)
+#pragma omp parallel for schedule(static)  private(i, j)
         for (j = k + 1; j < _PB_N; j++)
             A[k][j] /= c1;
 

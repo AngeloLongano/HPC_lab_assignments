@@ -5,11 +5,12 @@
 
 # ./run.sh DATA_SIZE N_THREADS STATISTICS
 
-NAME_FILE="${1:-"lu"}"
+NAME_FILE="${1:-"lu_opt1"}"
 DATA_SIZE="${2:-"STANDARD_DATASET"}"
 N_THREADS="${3:-"4"}"
-STATISTICS="${4:-"gprof"}"
+STATISTICS="${4:-"polybench"}"
 
+echo "-------------------------------------"
 echo "Running $NAME_FILE with $DATA_SIZE dataset and $N_THREADS threads ($STATISTICS)"
 echo "-------------------------------------"
 make EXT_CFLAGS="-pg -D$DATA_SIZE -DNTHREADS=$N_THREADS" EXT_ARGS="" BENCHMARK=$NAME_FILE clean all run

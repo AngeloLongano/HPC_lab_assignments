@@ -56,7 +56,7 @@ static void print_array(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
 static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
 {
     int i, j, k;
-    int c1, c2;
+    DATA_TYPE c1, c2;
     for (k = 0; k < _PB_N; k++)
     {
         c1 = A[k][k];
@@ -68,7 +68,7 @@ static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
 #pragma omp target teams distribute parallel for dist_schedule(static) private(i, j)
         for (i = k + 1; i < _PB_N; i++)
         {
-
+            c2 = A[i][k];
             for (j = k + 1; j < _PB_N; j++)
                 A[i][j] -= (A[i][k] * A[k][j]);
         }
