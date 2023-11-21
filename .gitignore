@@ -21,4 +21,5 @@
 # Temp Files
 *~
 #*#
-
+# Editor
+.vscode

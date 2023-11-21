@@ -1,23 +1,34 @@
 #!/bin/bash
 
-# Verifico il num di argomenti
-if [ "$#" -ne 3 ]; then
-    echo "Manca uno degli argomenti, questo è l'ordine: $0 N NTHREADS COMPILER_TYPE"
-    exit 1
-fi
+# possible dataset_size: MINI_DATASET, SMALL_DATASET, STANDARD_DATASET, LARGE_DATASET, EXTRALARGE_DATASET
+# possible STATISTICS: polybench, perf
 
-# Imposta i parametri passati dalla riga di comando
-export N=$1
-export OMP_NUM_THREADS=$2
-COMPILER_TYPE=$3
+# ./run.sh DATA_SIZE N_THREADS STATISTICS
 
-# 1 == Polybench, 0 == Perf
-if [ "$COMPILER_TYPE" -eq 1 ]; then
-    echo "Using Polybench"
-    make EXT_CFLAGS="-DPOLYBENCH_TIME -pg -DN=$N -DNTHREADS=$OMP_NUM_THREADS" clean all run
-else
-    module load perf/1.0
-    echo "Using perf"
-    make EXT_CFLAGS="-pg -DN=$N -DNTHREADS=$OMP_NUM_THREADS" EXT_ARGS="" clean all run
-    perf stat ./lu_acc
-fi
+NAME_FILE="${1:-"lu"}"
+DATA_SIZE="${2:-"STANDARD_DATASET"}"
+N_THREADS="${3:-"4"}"
+STATISTICS="${4:-"gprof"}"
+
+echo "Running $NAME_FILE with $DATA_SIZE dataset and $N_THREADS threads ($STATISTICS)"
+echo "-------------------------------------"
+make EXT_CFLAGS="-pg -D$DATA_SIZE -DNTHREADS=$N_THREADS" EXT_ARGS="" BENCHMARK=$NAME_FILE clean all run
+
+case $STATISTICS in
+    none)
+        echo "No statistics"
+        ;;
+    perf)
+        echo "Using perf"
+        perf stat ./lu_acc
+        ;;
+    polybench)
+        echo "Using Polybench"
+        make benchmark
+        ;;
+    gprof)
+        echo "Using gprof"
+        NO_OPT="-O0 -g -fopenmp"
+        make EXT_CFLAGS="-pg -D$DATA_SIZE -DNTHREADS=$N_THREADS" EXT_ARGS="" BENCHMARK=$NAME_FILE OPT=$NO_OPT clean all run
+        gprof lu_acc gmon.out > analysis.txt
+esac
