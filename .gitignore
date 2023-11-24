@@ -23,3 +23,9 @@
 #*#
 # Editor
 .vscode
+*.swp
+
+# Output files
+statistics.txt
+output.*.txt
+*.polybench
