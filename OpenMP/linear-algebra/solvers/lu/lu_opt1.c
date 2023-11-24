@@ -48,18 +48,21 @@ static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
     for (k = 0; k < _PB_N; k++)
     {
         c1 = A[k][k];
-
-#pragma omp parallel for schedule(static) private(i, j)
-        for (j = k + 1; j < _PB_N; j++)
-            A[k][j] /= c1;
-
-#pragma omp parallel for schedule(static) private(i, j)
-        for (i = k + 1; i < _PB_N; i++)
-        {
-            c2 = A[i][k];
+        
+        #pragma omp parallel
+	{
+            #pragma omp for schedule(static) private(i, j) firstprivate(c1)
             for (j = k + 1; j < _PB_N; j++)
-                A[i][j] -= (c2 * A[k][j]);
-        }
+                A[k][j] /= c1;
+
+            #pragma omp for schedule(static) private(i, j)
+            for (i = k + 1; i < _PB_N; i++)
+            {
+                c2 = A[i][k];
+                for (j = k + 1; j < _PB_N; j++)
+                    A[i][j] -= (c2 * A[k][j]);
+	    }         
+	}
     }
 }
 
@@ -78,9 +81,7 @@ int main(int argc, char** argv)
     polybench_start_instruments;
 
     /* Run kernel. */
-    // #pragma omp target data map(tofrom:A[:_PB_N][:_PB_N])
     kernel_lu(n, POLYBENCH_ARRAY(A));
-    // #pragma omp target data exit mapfrom:A[:_PB_N][:_PB_N])
 
     /* Stop and print timer. */
     polybench_stop_instruments;
