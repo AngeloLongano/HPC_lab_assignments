@@ -25,7 +25,7 @@ case $STATISTICS in
         ;;
     polybench)
         echo "Using polybench benchmark"
-        make benchmark
+        make benchmark BENCHMARK=$NAME_FILE
         ;;
     gprof)
         echo "Using gprof"
