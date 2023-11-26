@@ -43,16 +43,23 @@ static void print_array(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
 static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
 {
     int i, j, k;
+    DATA_TYPE c1;
 
-    for (k = 0; k < _PB_N; k++)
+    for (k = 0; k < _PB_N - 1; k++)
     {
-        #pragma omp parallel for
-        for (j = k + 1; j < _PB_N; j++)
-            A[k][j] = A[k][j] / A[k][k];
-        #pragma omp parallel for simd
-        for (i = k + 1; i < _PB_N; i++)
+	#pragma omp parallel shared(A) firstprivate(_PB_N, k) if (_PB_N - k - 1 >= 4)
+	{
+            c1 = A[k][k];
+
+            #pragma omp for simd firstprivate(c1)
             for (j = k + 1; j < _PB_N; j++)
-                A[i][j] = A[i][j] - A[i][k] * A[k][j];
+                A[k][j] /= c1;
+
+            #pragma omp for simd collapse(2)
+            for (i = k + 1; i < _PB_N; i++)
+                for (j = k + 1; j < _PB_N; j++)
+                    A[i][j] -= (A[i][k] * A[k][j]);
+	}
     }
 }
 
