@@ -57,21 +57,28 @@ static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
 {
     int i, j, k;
     DATA_TYPE c1, c2;
-    for (k = 0; k < _PB_N; k++)
+
+    #pragma omp target map(to: _PB_N) map(tofrom: A[:_PB_N][:_PB_N])
+    for (k = 0; k < _PB_N - 1; k++)
     {
         c1 = A[k][k];
 
-#pragma omp target teams distribute parallel for dist_schedule(static) private(i, j)
-        for (j = k + 1; j < _PB_N; j++)
-            A[k][j] /= c1;
+	#pragma omp teams shared(A) firstprivate(_PB_N, k, c1)
+	{
 
-#pragma omp target teams distribute parallel for dist_schedule(static) private(i, j)
-        for (i = k + 1; i < _PB_N; i++)
-        {
-            c2 = A[i][k];
+            #pragma omp distribute parallel for private(i, j)
             for (j = k + 1; j < _PB_N; j++)
-                A[i][j] -= (A[i][k] * A[k][j]);
-        }
+                A[k][j] /= c1;
+
+            #pragma omp distribute parallel for private(i, j, c2)
+            for (i = k + 1; i < _PB_N; i++)
+            {
+                c2 = A[i][k];
+
+                for (j = k + 1; j < _PB_N; j++)
+                    A[i][j] -= (c2 * A[k][j]);
+            }
+	}
     }
 }
 
@@ -89,11 +96,8 @@ int main(int argc, char** argv)
     /* Start timer. */
     polybench_start_instruments;
 
-/* Run kernel. */
-#pragma omp target enter data map(to : A[ : _PB_N][ : _PB_N])
-#pragma omp target
+    /* Run kernel. */
     kernel_lu(n, POLYBENCH_ARRAY(A));
-#pragma omp target exit data map(from : A[ : _PB_N][ : _PB_N])
 
     /* Stop and print timer. */
     polybench_stop_instruments;

@@ -61,11 +61,11 @@ static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
     #pragma omp target map(to: _PB_N) map(tofrom: A[:_PB_N][:_PB_N])
     for (k = 0; k < _PB_N - 1; k++)
     {
-	#pragma omp teams shared(A) firstprivate(_PB_N, k)
-	{
-            c1 = A[k][k];
+        c1 = A[k][k];
 
-            #pragma omp distribute parallel for simd firstprivate(c1)
+	#pragma omp teams shared(A) firstprivate(_PB_N, k, c1)
+	{
+            #pragma omp distribute parallel for simd
             for (j = k + 1; j < _PB_N; j++)
                 A[k][j] /= c1;
 

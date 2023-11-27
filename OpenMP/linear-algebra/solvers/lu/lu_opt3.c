@@ -47,11 +47,11 @@ static void kernel_lu(int n, DATA_TYPE POLYBENCH_2D(A, N, N, n, n))
 
     for (k = 0; k < _PB_N - 1; k++)
     {
-	#pragma omp parallel shared(A) firstprivate(_PB_N, k) if (_PB_N - k - 1 >= 4)
-	{
-            c1 = A[k][k];
+        c1 = A[k][k];
 
-            #pragma omp for simd firstprivate(c1)
+	#pragma omp parallel shared(A) firstprivate(_PB_N, k, c1) if (_PB_N - k - 1 >= 4)
+	{
+            #pragma omp for simd
             for (j = k + 1; j < _PB_N; j++)
                 A[k][j] /= c1;
 
