@@ -29,3 +29,6 @@
 statistics.txt
 output.*.txt
 *.polybench
+
+# Cuda
+lu_cuda/build
