@@ -164,7 +164,7 @@ int main(int argc, char** argv)
     free(A);
 
 #ifdef CUDA_TIME
-    fprintf(stderr, "%.6f\n", elapsed);
+    printf("%.6f\n", elapsed);
 #endif
 
     return 0;
