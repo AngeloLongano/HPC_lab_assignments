@@ -55,4 +55,7 @@ metrics: $(EXE)
 clean:
 	-rm -fr $(BUILD_DIR) *.exe *.out *~
 
+benchmark: $(EXE)
+	../utilities/time_benchmark.sh ./$(EXE)
+
 MKDIR_P ?= mkdir -p
