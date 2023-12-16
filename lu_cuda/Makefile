@@ -11,10 +11,10 @@ BUILD_DIR ?= ./build
 NVCC=$(CUDA_HOME)/bin/nvcc
 CXX=g++
 
-OPT:=-O2 -g
-NVOPT:=-Xcompiler -fopenmp -lineinfo `pkg-config --cflags --libs opencv4`
+OPT:=-O3
+NVOPT:=-Xcompiler -fopenmp -lineinfo -arch=sm_53
 
-CXXFLAGS:=$(OPT) -I. $(EXT_CXXFLAGS)
+CXXFLAGS:=$(OPT) -I. -I ../utilities $(EXT_CXXFLAGS)
 LDFLAGS:=-lm -lcudart $(EXT_LDFLAGS)
 
 NVCFLAGS:=$(CXXFLAGS) $(NVOPT)

@@ -1,6 +1,6 @@
 {
     "clangd.fallbackFlags": [
-        "-I${workspaceFolder}/common"
+        "-I${workspaceFolder}/utilities"
     ],
     "files.associations": {
         "functional": "c"

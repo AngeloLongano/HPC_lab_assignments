@@ -1,135 +1,171 @@
-#include <cuda_runtime.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+
+/* Include polybench common header. */
+// #define POLYBENCH_DUMP_ARRAYS
+#include <polybench.h>
+
+/* Include benchmark-specific header. */
+/* Default data type is double, default size is 1024. */
 #include "lu.h"
 
-#define BLOCK_SIZE_X 32
-#define BLOCK_SIZE_Y 32
+#ifndef BLOCK_SIZE
+#define BLOCK_SIZE 32
+#endif
 
-__global__ void lu_kernel(int n, DATA_TYPE *A, int k)
+#define gpuErrchk(ans)                        \
+    {                                         \
+        gpuAssert((ans), __FILE__, __LINE__); \
+    }
+
+static inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort = true)
 {
-    int bx = blockIdx.x;
-    int by = blockIdx.y;
-    int tx = threadIdx.x;
-    int ty = threadIdx.y;
-
-    int row = by * blockDim.y + ty;
-    int col = bx * blockDim.x + tx;
-
-    extern __shared__ DATA_TYPE shared_A[];
-
-    if (row < n && col < n)
+    if (code != cudaSuccess)
     {
-        DATA_TYPE c1, c2;
-
-        // Copy data from global memory to shared memory
-        shared_A[row * n + col] = A[row * n + col];
-
-        __syncthreads();
-
-        if (col == k)
-        {
-            c1 = shared_A[k * n + k];
-
-            // Normalizzazione della colonna corrente
-            for (int j = k + 1; j < n; j++)
-                shared_A[k * n + j] /= c1;
-        }
-
-        __syncthreads();
-
-        if (row > k && col > k)
-        {
-            c2 = shared_A[row * n + k];
-
-            // Eliminazione gaussiana nella riga corrente
-            for (int j = k + 1; j < n; j++)
-                shared_A[row * n + j] -= (c2 * shared_A[k * n + j]);
-        }
-
-        __syncthreads();
-
-        // Copy data back to global memory
-        A[row * n + col] = shared_A[row * n + col];
+        fprintf(stderr, "GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
+        if (abort)
+            exit(code);
     }
 }
 
-static void kernel_lu(int n, DATA_TYPE *A)
-{
-    DATA_TYPE *d_A;
-    cudaMalloc((void **)&d_A, sizeof(DATA_TYPE) * n * n);
-    cudaMemcpy(d_A, A, sizeof(DATA_TYPE) * n * n, cudaMemcpyHostToDevice);
-
-    dim3 threadsPerBlock(BLOCK_SIZE_X, BLOCK_SIZE_Y);
-    dim3 numBlocks((n + BLOCK_SIZE_X - 1) / BLOCK_SIZE_X, (n + BLOCK_SIZE_Y - 1) / BLOCK_SIZE_Y);
-
-    size_t shared_size = sizeof(DATA_TYPE) * BLOCK_SIZE_Y * n;
-    lu_kernel<<<numBlocks, threadsPerBlock, shared_size>>>(n, d_A, 0);
-
-    cudaError_t cuda_status = cudaGetLastError();
-    if (cuda_status != cudaSuccess)
-    {
-        fprintf(stderr, "CUDA error: %s\n", cudaGetErrorString(cuda_status));
-        exit(1);
-    }
-
-    cudaMemcpy(A, d_A, sizeof(DATA_TYPE) * n * n, cudaMemcpyDeviceToHost);
-    cudaFree(d_A);
-}
-
-static void init_array(int n, DATA_TYPE *A)
+/* Array initialization. */
+static void init_array(int n, DATA_TYPE* A)
 {
     int i, j;
 
     for (i = 0; i < n; i++)
         for (j = 0; j < n; j++)
-            A[i * n + j] = ((DATA_TYPE)(i + 1) * (j + 1)) / n;
+            A[(i * n) + j] = ((DATA_TYPE)(i + 1) * (j + 1)) / n;
 }
 
-static void print_array(int n, DATA_TYPE *A)
+/* DCE code. Must scan the entire live-out data.
+   Can be used also to check the correctness of the output. */
+static void print_array(int n, DATA_TYPE* A)
 {
     int i, j;
 
     for (i = 0; i < n; i++)
         for (j = 0; j < n; j++)
         {
-            fprintf(stderr, "%f ", A[i * n + j]);
+            fprintf(stderr, DATA_PRINTF_MODIFIER, A[(i * n) + j]);
             if ((i * n + j) % 20 == 0)
                 fprintf(stderr, "\n");
         }
     fprintf(stderr, "\n");
 }
 
-int main()
+__global__ void gpuFirstLoop(int n, DATA_TYPE* A, int k)
 {
-    int n = N; 
-    DATA_TYPE *A = (DATA_TYPE *)malloc(sizeof(DATA_TYPE) * n * n);
+    int j = blockIdx.x * blockDim.x + threadIdx.x + k + 1;
 
-    init_array(n, A);
+    if (j < n)
+    {
+        DATA_TYPE A_k_k = A[(k * n) + k];
 
-    // Start timer.
+        A[(k * n) + j] /= A_k_k;
+    }
+}
+
+__global__ void gpuSecondLoop(int n, DATA_TYPE* A, int k)
+{
+    int i = blockIdx.y * blockDim.y + threadIdx.y + k + 1;
+    int j = blockIdx.x * blockDim.x + threadIdx.x + k + 1;
+
+    if (i < n && j < n)
+    {
+        DATA_TYPE A_i_k = A[(i * n) + k];
+        DATA_TYPE A_k_j = A[(k * n) + j];
+
+        A[(i * n) + j] -= (A_i_k * A_k_j);
+    }
+}
+
+/* Main computational kernel. The whole function will be timed,
+   including the call and return. */
+#ifdef CUDA_TIME
+static float kernel_lu(int n, DATA_TYPE* A)
+#else
+static void kernel_lu(int n, DATA_TYPE* A)
+#endif
+{
+    DATA_TYPE* d_A;
+    dim3 secondLoopBlocKsize(BLOCK_SIZE, BLOCK_SIZE);
+
+#ifdef CUDA_TIME
     cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    cudaEventRecord(start);
+    gpuErrchk(cudaEventCreate(&start));
+    gpuErrchk(cudaEventCreate(&stop));
+    gpuErrchk(cudaEventRecord(start));
+#endif
 
-    // Run kernel.
-    kernel_lu(n, A);
+    gpuErrchk(cudaMalloc(&d_A, sizeof(DATA_TYPE) * n * n));
+    gpuErrchk(cudaMemcpy(d_A, A, sizeof(DATA_TYPE) * n * n, cudaMemcpyHostToDevice));
 
-    // Stop and print timer.
+    for (int k = 0; k < _PB_N - 1; k++)
+    {
+        dim3 firstLoopGridSize((n - k - 2 + BLOCK_SIZE) / BLOCK_SIZE);
+        gpuFirstLoop<<<firstLoopGridSize, BLOCK_SIZE>>>(n, d_A, k);
+        gpuErrchk(cudaPeekAtLastError());
+
+        dim3 secondLoopGridSize((n - k - 2 + BLOCK_SIZE) / BLOCK_SIZE, (n - k - 2 + BLOCK_SIZE) / BLOCK_SIZE);
+        gpuSecondLoop<<<secondLoopGridSize, secondLoopBlocKsize>>>(n, d_A, k);
+        gpuErrchk(cudaPeekAtLastError());
+    }
+
+    gpuErrchk(cudaMemcpy(A, d_A, sizeof(DATA_TYPE) * n * n, cudaMemcpyDeviceToHost));
+    gpuErrchk(cudaFree(d_A));
+
+#ifdef CUDA_TIME
     cudaEventRecord(stop);
     cudaEventSynchronize(stop);
-    float milliseconds = 0;
-    cudaEventElapsedTime(&milliseconds, start, stop);
-    printf("Execution Time: %f ms\n", milliseconds);
 
-    // Print result for verification or analysis
-    // Comment this out for large problem sizes as it might flood the console
-    print_array(n, A);
+    float elapsed;
 
+    gpuErrchk(cudaEventElapsedTime(&elapsed, start, stop));
+    gpuErrchk(cudaEventDestroy(start));
+    gpuErrchk(cudaEventDestroy(stop));
+
+    return (elapsed / 1000);
+#endif
+}
+
+int main(int argc, char** argv)
+{
+    /* Retrieve problem size. */
+    int n = N;
+
+    /* Variable declaration/allocation. */
+    DATA_TYPE* A = (DATA_TYPE*)malloc(sizeof(DATA_TYPE) * n * n);
+
+    /* Initialize array(s). */
+    init_array(n, A);
+
+    /* Start timer. */
+    polybench_start_instruments;
+
+/* Run kernel. */
+#ifdef CUDA_TIME
+    float elapsed = kernel_lu(n, A);
+#else
+    kernel_lu(n, A);
+#endif
+
+    /* Stop and print timer. */
+    polybench_stop_instruments;
+    polybench_print_instruments;
+
+    /* Prevent dead-code elimination. All live-out data must be printed
+       by the function call in argument. */
+    polybench_prevent_dce(print_array(n, A));
+
+    /* Be clean. */
     free(A);
+
+#ifdef CUDA_TIME
+    fprintf(stderr, "%.6f\n", elapsed);
+#endif
 
     return 0;
 }
