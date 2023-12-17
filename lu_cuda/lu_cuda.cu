@@ -91,7 +91,7 @@ static void kernel_lu(int n, DATA_TYPE* A)
 #endif
 {
     DATA_TYPE* d_A;
-    dim3 secondLoopBlocKsize(BLOCK_SIZE, BLOCK_SIZE);
+    dim3 secondLoopBlockSize(BLOCK_SIZE, BLOCK_SIZE);
 
 #ifdef CUDA_TIME
     cudaEvent_t start, stop;
@@ -109,8 +109,8 @@ static void kernel_lu(int n, DATA_TYPE* A)
         gpuFirstLoop<<<firstLoopGridSize, BLOCK_SIZE>>>(n, d_A, k);
         gpuErrchk(cudaPeekAtLastError());
 
-        dim3 secondLoopGridSize((n - k - 2 + BLOCK_SIZE) / BLOCK_SIZE, (n - k - 2 + BLOCK_SIZE) / BLOCK_SIZE);
-        gpuSecondLoop<<<secondLoopGridSize, secondLoopBlocKsize>>>(n, d_A, k);
+        dim3 secondLoopGridSize(firstLoopGridSize.x, firstLoopGridSize.x);
+        gpuSecondLoop<<<secondLoopGridSize, secondLoopBlockSize>>>(n, d_A, k);
         gpuErrchk(cudaPeekAtLastError());
     }
 
